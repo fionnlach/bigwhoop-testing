@@ -1,6 +1,22 @@
 #!/bin/bash
 set -ouex pipefail
 
+# Core Desktop Plumbing
+dnf -y install \
+    pipewire pipewire-pulseaudio NetworkManager-wifi \
+    xdg-desktop-portal-hyprland xorg-x11-server-Xwayland \
+    wl-clipboard google-noto-sans-fonts fontawesome-fonts \
+    polkit bluez sddm
+
+# Enable critical services
+systemctl enable NetworkManager.service
+systemctl enable bluetooth.service
+systemctl enable sddm.service
+
+dnf -y install greetd greetd-selinux tuigreet
+systemctl enable greetd.service
+
+
 # 1. Enable Repositories
 # Dank Linux COPR for DMS, dgop, and other Dank tools
 dnf -y copr enable avengemedia/danklinux
@@ -38,6 +54,24 @@ EOF
 # We can pre-enable them for all users by symlinking in /usr/lib/systemd/user/
 mkdir -p /usr/lib/systemd/user/default.target.wants
 ln -s /usr/lib/systemd/user/dms.service /usr/lib/systemd/user/default.target.wants/dms.service
+
+# Configure greetd to launch Niri
+mkdir -p /etc/greetd
+cat <<EOF > /etc/greetd/config.toml
+[default_session]
+# --cmd niri sets Niri as the default choice in the menu
+command = "tuigreet --time --remember --remember-session --cmd niri --theme 'border=magenta;text=cyan;prompt=green;time=red'"
+user = "greeter"
+EOF
+
+# Ensure the greeter has necessary permissions
+usermod -aG video,input greeter
+
+# Ensure Niri session is visible to the login manager
+mkdir -p /usr/share/wayland-sessions
+cp /usr/share/applications/niri.desktop /usr/share/wayland-sessions/niri.desktop || true
+
+
 
 # 5. Cleanup
 dnf clean all
